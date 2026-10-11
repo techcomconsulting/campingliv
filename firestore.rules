@@ -1,0 +1,124 @@
+rules_version = '2';
+// Campingliv – säkerhetsregler. Synligheten (offentligt / vänner / privat)
+// avgörs här på servern, inte bara i appen.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
+    function isFriendOf(owner) {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(owner)/friends/$(request.auth.uid));
+    }
+    function myName() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName;
+    }
+    function canReadPost(p) {
+      return p.visibility == 'public'
+        || (signedIn() && p.authorId == request.auth.uid)
+        || (p.visibility == 'friends' && isFriendOf(p.authorId));
+    }
+    function postData(pid) {
+      return get(/databases/$(database)/documents/posts/$(pid)).data;
+    }
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+
+    // ---------- Profiler ----------
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName','displayNameLower','bio','vehicle','createdAt','updatedAt'])
+        && str(request.resource.data.displayName, 2, 50)
+        && request.resource.data.displayNameLower == request.resource.data.displayName.lower()
+        && str(request.resource.data.bio, 0, 500)
+        && str(request.resource.data.vehicle, 0, 80);
+      allow delete: if false;
+
+      // users/{uid}/friends/{fid} finns = fid är vän till uid
+      match /friends/{fid} {
+        allow read: if signedIn() && (request.auth.uid == uid || request.auth.uid == fid);
+        allow create: if verified()
+          && request.resource.data.keys().hasOnly(['name','since'])
+          && (
+            // Jag godkänner en förfrågan från fid
+            (request.auth.uid == uid && exists(/databases/$(database)/documents/friendRequests/$(fid + '_' + uid)))
+            // Jag godkänner uid:s förfrågan och lägger mig i deras lista
+            || (request.auth.uid == fid && exists(/databases/$(database)/documents/friendRequests/$(uid + '_' + fid)))
+          );
+        allow update: if false;
+        allow delete: if signedIn() && (request.auth.uid == uid || request.auth.uid == fid);
+      }
+    }
+
+    // ---------- Vänförfrågningar (id = från_till) ----------
+    match /friendRequests/{rid} {
+      allow read: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['from','to','fromName','toName','createdAt'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to != request.auth.uid
+        && rid == request.auth.uid + '_' + request.resource.data.to
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.to))
+        && request.resource.data.fromName == myName();
+      allow update: if false;
+      allow delete: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+    }
+
+    // ---------- Inlägg ----------
+    match /posts/{pid} {
+      allow read: if canReadPost(resource.data);
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['authorId','authorName','title','place','text','visibility','createdAt'])
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.authorName == myName()
+        && request.resource.data.visibility in ['public','friends','private']
+        && str(request.resource.data.title, 0, 150)
+        && str(request.resource.data.place, 0, 150)
+        && str(request.resource.data.text, 1, 5000)
+        && request.resource.data.createdAt == request.time;
+      allow update: if verified()
+        && resource.data.authorId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','place','text','visibility'])
+        && request.resource.data.visibility in ['public','friends','private']
+        && str(request.resource.data.title, 0, 150)
+        && str(request.resource.data.place, 0, 150)
+        && str(request.resource.data.text, 1, 5000);
+      allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
+
+      match /likes/{uid} {
+        allow read: if canReadPost(postData(pid));
+        allow create: if verified() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['createdAt'])
+          && canReadPost(postData(pid));
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /comments/{cid} {
+        allow read: if canReadPost(postData(pid));
+        allow create: if verified()
+          && request.resource.data.keys().hasOnly(['authorId','authorName','text','createdAt'])
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.authorName == myName()
+          && str(request.resource.data.text, 1, 2000)
+          && request.resource.data.createdAt == request.time
+          && canReadPost(postData(pid));
+        allow delete: if signedIn()
+          && (resource.data.authorId == request.auth.uid || postData(pid).authorId == request.auth.uid);
+      }
+    }
+
+    // ---------- Rapporter (bara admin läser, via Firebase-konsolen) ----------
+    match /reports/{rid} {
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['reporterId','type','targetId','reason','createdAt'])
+        && request.resource.data.reporterId == request.auth.uid
+        && str(request.resource.data.reason, 1, 500)
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+
+    // Allt annat är stängt
+    match /{document=**} { allow read, write: if false; }
+  }
+}

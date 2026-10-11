@@ -1,0 +1,40 @@
+name: Publicera Campingliv
+
+# Lägger ut appen, reglerna och databasindex på Firebase vid varje ändring.
+# Kräver hemligheten FIREBASE_SA (JSON-nyckel för ett servicekonto med rollen "Firebase Admin").
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kolla att nyckeln finns
+        env:
+          SA: ${{ secrets.FIREBASE_SA }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "Hemligheten FIREBASE_SA saknas. Se README, steg 'Engångsinställning'."
+            exit 1
+          fi
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Publicera
+        env:
+          PROJECT: campingliv-a2e96
+        run: |
+          export TOKEN=$(gcloud auth print-access-token)
+          python3 scripts/deploy.py
