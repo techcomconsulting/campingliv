@@ -36,8 +36,14 @@ def step(name):
     print(f"\n=== {name} ===", flush=True)
 
 
+def gh(kind, msg):
+    # Syns som anteckning i GitHub (läsbar via API)
+    print(f"::{kind}::" + msg.replace("%", "%25").replace("\r", "").replace("\n", " ")[:3000], flush=True)
+
+
 def fail(msg):
     print(f"FEL: {msg}", flush=True)
+    gh("error", msg)
     sys.exit(1)
 
 
@@ -47,7 +53,7 @@ code, res = call("PATCH",
     f"https://identitytoolkit.googleapis.com/admin/v2/projects/{PROJECT}/config"
     "?updateMask=signIn.email.enabled,signIn.email.passwordRequired",
     {"signIn": {"email": {"enabled": True, "passwordRequired": True}}})
-print("OK" if code == 200 else f"Varning ({code}): {res.get('error','')[:400]}")
+print("OK") if code == 200 else gh("warning", f"Inloggning ({code}): {res.get('error','')[:400]}")
 
 # 2. Databas
 step("Firestore-databas")
@@ -91,7 +97,9 @@ for idx in json.loads(idx_file.read_text()).get("indexes", []) if idx_file.exist
             "fields": [{"fieldPath": f["fieldPath"], "order": f["order"]} for f in idx["fields"]]}
     code, res = call("POST", f"{fs}/(default)/collectionGroups/{group}/indexes", body, ok=(409,))
     desc = ", ".join(f["fieldPath"] for f in idx["fields"])
-    print(f"{group} ({desc}):", "finns redan" if code == 409 else ("skapas" if code == 200 else f"varning {code} {res.get('error','')[:300]}"))
+    print(f"{group} ({desc}):", "finns redan" if code == 409 else ("skapas" if code == 200 else f"varning {code}"))
+    if code not in (200, 409):
+        gh("warning", f"Index {group} ({code}): {res.get('error','')[:300]}")
 
 # 5. Hosting
 step("Webbplats (Firebase Hosting)")
@@ -133,3 +141,4 @@ code, res = call("POST", f"{host}/{site}/releases?versionName={version}", {})
 if code != 200:
     fail(f"Release ({code}): {res.get('error','')[:400]}")
 print(f"\nKlart! Appen finns på https://{PROJECT}.web.app")
+gh("notice", f"Publicerad: https://{PROJECT}.web.app")
