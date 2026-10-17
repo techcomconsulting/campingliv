@@ -1,5 +1,6 @@
 import { auth, db, A, F } from "./firebase.js";
 import { renderMap } from "./map.js";
+import { setupTrips, routeSvg, milText } from "./trips.js";
 
 const {
   doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where,
@@ -194,21 +195,27 @@ function postCard(p) {
   const v = VIS[p.visibility] || VIS.public;
   const mine = p.authorId === me.uid;
   // Rubrik (eller kort text) visas stort på en färgad yta
-  const big = p.title || (p.text.length <= 120 ? p.text : "");
-  const caption = p.title ? p.text : (big ? "" : p.text);
+  const big = p.trip?.route ? "" : p.title || (p.text.length <= 120 ? p.text : "");
+  const caption = p.trip?.route ? p.text : p.title ? p.text : (big ? "" : p.text);
   return `
   <article class="ig" data-id="${esc(p.id)}">
     <header>
       <div class="ring"><div class="avatar">${initial(p.authorName)}</div></div>
       <div class="who"><b>${esc(p.authorName)}</b>
-        <small>${p.place ? `📍 ${esc(p.place)}` : `${v.icon} ${v.label}`}</small></div>
+        <small>${p.trip && !p.trip.route ? `🚐 <a href="#/resa/${esc(p.trip.id)}">${esc(p.trip.name)}</a>${p.place ? ` · 📍 ${esc(p.place)}` : ""}`
+          : p.place ? `📍 ${esc(p.place)}` : `${v.icon} ${v.label}`}</small></div>
       <button class="icon menu" aria-label="Mer">⋯</button>
       <div class="menu-pop" hidden>
         ${mine ? `<button data-act="delete">Ta bort inlägget</button>`
                : `<button data-act="report">Rapportera</button>`}
       </div>
     </header>
-    ${big ? `<div class="cover" style="background:${coverFor(p.id)}">
+    ${p.trip?.route ? `<a class="cover trip-cover" href="#/resa/${esc(p.trip.id)}" style="background:${coverFor(p.trip.id)}">
+        ${routeSvg(p.trip.route, esc)}
+        <div class="trip-label"><b>🚐 ${esc(p.trip.name)}</b>
+          <small>${p.trip.stops} stopp${p.trip.km ? ` · ${milText(p.trip.km)}` : ""}${p.trip.days ? ` · ${p.trip.days} dagar` : ""}</small></div>
+        <div class="heart">❤️</div></a>`
+    : big ? `<div class="cover" style="background:${coverFor(p.id)}">
         <p class="${big.length > 60 ? "long" : ""}">${esc(big)}</p>
         ${p.place ? `<span class="tag">📍 ${esc(p.place)}</span>` : ""}
         <div class="heart">❤️</div></div>` : ""}
@@ -401,12 +408,18 @@ async function renderComments(box, p) {
 }
 
 // ---------- Skapa inlägg ----------
-function renderCreate() {
+async function renderCreate() {
+  let open = [];
+  try { open = (await trips.myTrips()).filter((t) => trips.statusOf(t).cls !== "done"); } catch { /* inga resor */ }
   $main.innerHTML = `
   <h1 class="page">Nytt inlägg</h1>
   <form class="card" id="postForm">
     <label>Rubrik<input name="title" maxlength="150" placeholder="T.ex. Första natten vid Vättern"></label>
     <label>Plats<input name="place" maxlength="150" placeholder="Camping eller ställplats (valfritt)" value="${esc(prefillPlace)}"></label>
+    ${open.length ? `<label>Del av resa
+      <select name="trip"><option value="">Ingen resa</option>
+        ${open.map((t, i) => `<option value="${esc(t.id)}" ${i === 0 && trips.statusOf(t).cls === "live" ? "selected" : ""}>🚐 ${esc(t.name)}</option>`).join("")}
+      </select></label>` : ""}
     <label>Berätta<textarea name="text" rows="6" maxlength="5000" required placeholder="Hur var dagen?"></textarea></label>
     <label>Vem får se inlägget?
       <select name="visibility">
@@ -424,10 +437,12 @@ function renderCreate() {
     const btn = f.querySelector("button"); busy(btn, true);
     const d = Object.fromEntries(new FormData(f));
     try {
+      const t = open.find((x) => x.id === d.trip);
       await addDoc(collection(db, "posts"), {
         authorId: me.uid, authorName: profile.displayName,
         title: d.title.trim(), place: d.place.trim(), text: d.text.trim(),
         visibility: d.visibility, createdAt: serverTimestamp(),
+        ...(t ? { trip: { id: t.id, name: t.name.slice(0, 100) } } : {}),
       });
       toast("Inlägget är publicerat!");
       location.hash = "#/flode";
@@ -553,18 +568,34 @@ function renderSoon(title, text) {
     <div class="card empty"><p>${text}</p><p class="muted">Kommer i nästa steg.</p></div>`;
 }
 
+// ---------- Resor ----------
+const trips = setupTrips({
+  $main, esc, toast, errText, busy, VIS, postCard, wirePost,
+  me: () => me, profile: () => profile,
+  canSee: async (ownerId) => {
+    try { return (await getDoc(doc(db, "users", ownerId, "friends", me.uid))).exists(); } catch { return false; }
+  },
+});
+
 // ---------- Navigering ----------
 const routes = {
   "#/flode": renderFeed,
   "#/karta": () => renderMap($main, (name) => { prefillPlace = name; location.hash = "#/skapa"; }),
   "#/skapa": renderCreate,
-  "#/resor": () => renderSoon("Resor", "🚐 Här skapar du resor med rutt och kostnader."),
+  "#/resor": () => trips.renderTrips(),
   "#/profil": renderProfile,
   "#/vanner": renderFriends,
 };
 
 function route() {
   if (!me || !profile) return;
+  if (location.hash.startsWith("#/resa/")) {
+    $nav.hidden = false;
+    document.body.classList.remove("on-map");
+    $nav.querySelectorAll("a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#/resor"));
+    trips.renderTrip(decodeURIComponent(location.hash.slice(7)));
+    return window.scrollTo(0, 0);
+  }
   const h = routes[location.hash] ? location.hash : "#/flode";
   $nav.hidden = false;
   $nav.querySelectorAll("a").forEach((a) =>

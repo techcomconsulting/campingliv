@@ -51,6 +51,12 @@ function popupHtml(t, type) {
     </div>`;
 }
 
+// Laddar kartprogrammet (används även av resor)
+export async function loadLeaflet() {
+  L = L || await import(LEAFLET).catch(() => import(LEAFLET_CDN));
+  return L;
+}
+
 export async function renderMap($main, onPost) {
   $main.innerHTML = `
     <div class="map-wrap">

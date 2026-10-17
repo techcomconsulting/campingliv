@@ -16,5 +16,5 @@ Martin ska bara behöva komma med idéer – Claude gör allt arbete, testar och
 
 ## Planerad ordning
 1 konto/profil ✅ 2 flöde/gilla/kommentera ✅ 3 vänner/synlighet ✅
-4 bilder (Cloudflare R2 – väntar: Martin slår på R2 senare) 5 karta (OpenStreetMap) ✅ 6 resor + kostnader 7 incheckning
+4 bilder (Cloudflare R2 – väntar: Martin slår på R2 senare) 5 karta (OpenStreetMap, färdig data i public/data via data.yml) ✅ 6 resor ✅ (stopp, karta, dela i flödet) – kostnader kvar 7 incheckning
 8 reseanimation 9 API /api/v1 för campingar 10 admin

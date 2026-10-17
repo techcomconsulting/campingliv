@@ -182,3 +182,56 @@ body.on-map main { max-width: none; padding: 0; }
 .ig .add-comment input:placeholder-shown + .post-btn { opacity: .4; }
 .avatar.sm { width: 28px; height: 28px; font-size: .8rem; }
 .ig time { display: block; margin-top: 6px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+
+/* ---------- Resor ---------- */
+.trip-list { margin-top: 14px; }
+.trip-tile { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 10px; margin-bottom: 10px; color: inherit; text-decoration: none; }
+.trip-art { width: 84px; height: 84px; flex: none; border-radius: 12px; overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(135deg,#2f5d46,#7fb08a); font-size: 2rem; }
+.trip-art svg { width: 100%; height: 100%; }
+.trip-info { min-width: 0; }
+.trip-info b { display: block; font-size: 1.05rem; line-height: 1.25; margin: 4px 0 2px; }
+.badge { display: inline-block; font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+  background: var(--sand); color: var(--ink); text-transform: uppercase; letter-spacing: .3px; }
+.badge.live { background: #2a9d8f; color: #fff; }
+.badge.plan { background: #f3d27a; color: #3b2f12; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn.danger { color: var(--red); border-color: transparent; background: none; }
+.back { display: inline-block; color: var(--green); font-weight: 700; text-decoration: none; margin: 4px 0 8px; }
+.trip-head h1 { margin: 6px 0 2px; font-size: 1.6rem; line-height: 1.2; }
+.trip-head p { margin: 8px 0 0; white-space: pre-wrap; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
+.stats div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 4px; text-align: center; min-width: 0; }
+.stats b { display: block; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats small { font-size: .72rem; }
+.trip-map { height: 260px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--sand); }
+.actions-row { margin: 12px 0 4px; }
+.actions-row .btn:first-child { flex: 1; }
+.add-stop .link { margin-top: 10px; }
+.hit { display: block; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; margin-top: 6px; font: inherit; color: inherit; cursor: pointer; }
+.stops { list-style: none; padding: 0; margin: 0; }
+.stops li { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; }
+.stops .n { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%;
+  background: var(--sand); font-weight: 800; font-size: .85rem; }
+.stops li > div { flex: 1; min-width: 0; }
+.stops .tools { display: flex; }
+.stops .tools .icon { padding: 6px 9px; }
+.trip-cover { color: #fff; text-decoration: none; }
+.trip-cover .route-svg { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 80px); }
+.trip-label { position: absolute; left: 12px; right: 12px; bottom: 12px; text-align: left; background: rgb(0 0 0 / .35);
+  border-radius: 12px; padding: 8px 12px; }
+.trip-label b { font-size: 1.15rem; display: block; }
+.trip-label small { color: rgb(255 255 255 / .85); }
+.ig .who a { color: inherit; font-weight: 700; }
+.sheet-bg { position: fixed; inset: 0; z-index: 100; background: rgb(0 0 0 / .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  max-height: 92vh; overflow: auto; }
+.sheet h2 { margin-top: 0; }
+.sheet .btn { margin-top: 8px; }
+.share-prev { position: relative; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg,#1f4e79,#5fa8d3);
+  color: #fff; padding: 10px 12px; margin-bottom: 14px; }
+.share-prev svg { display: block; width: 100%; height: 180px; }
+.share-prev small { color: rgb(255 255 255 / .85); display: block; }

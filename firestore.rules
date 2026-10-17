@@ -21,6 +21,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/posts/$(pid)).data;
     }
     function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    function okTripRef(d) {
+      return !('trip' in d) || (d.trip is map
+        && d.trip.keys().hasOnly(['id','name','km','stops','days','route'])
+        && str(d.trip.id, 1, 40) && str(d.trip.name, 1, 100)
+        && (!('route' in d.trip) || (d.trip.route is list && d.trip.route.size() <= 130)));
+    }
 
     // ---------- Profiler ----------
     match /users/{uid} {
@@ -69,7 +75,8 @@ service cloud.firestore {
     match /posts/{pid} {
       allow read: if canReadPost(resource.data);
       allow create: if verified()
-        && request.resource.data.keys().hasOnly(['authorId','authorName','title','place','text','visibility','createdAt'])
+        && request.resource.data.keys().hasOnly(['authorId','authorName','title','place','text','visibility','createdAt','trip'])
+        && okTripRef(request.resource.data)
         && request.resource.data.authorId == request.auth.uid
         && request.resource.data.authorName == myName()
         && request.resource.data.visibility in ['public','friends','private']
@@ -106,6 +113,31 @@ service cloud.firestore {
         allow delete: if signedIn()
           && (resource.data.authorId == request.auth.uid || postData(pid).authorId == request.auth.uid);
       }
+    }
+
+    // ---------- Resor ----------
+    match /trips/{tid} {
+      function okTrip(d) {
+        return str(d.name, 1, 100) && str(d.description, 0, 2000)
+          && str(d.startDate, 0, 10) && str(d.endDate, 0, 10) && str(d.vehicle, 0, 30)
+          && d.travelers is int && d.travelers >= 1 && d.travelers <= 20
+          && d.visibility in ['public','friends','private']
+          && d.stops is list && d.stops.size() <= 100;
+      }
+      allow read: if resource.data.visibility == 'public'
+        || (signedIn() && resource.data.ownerId == request.auth.uid)
+        || (resource.data.visibility == 'friends' && isFriendOf(resource.data.ownerId));
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['ownerId','ownerName','name','description','startDate','endDate','vehicle','travelers','visibility','stops','createdAt','updatedAt'])
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerName == myName()
+        && request.resource.data.createdAt == request.time
+        && okTrip(request.resource.data);
+      allow update: if verified() && resource.data.ownerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name','description','startDate','endDate','vehicle','travelers','visibility','stops','updatedAt'])
+        && okTrip(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
     }
 
     // ---------- Rapporter (bara admin läser, via Firebase-konsolen) ----------
