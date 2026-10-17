@@ -47,26 +47,8 @@ def fail(msg):
     sys.exit(1)
 
 
-# 0. Slå på de Google-tjänster som behövs
-step("Google-tjänster")
-su = f"https://serviceusage.googleapis.com/v1/projects/{PROJECT}/services"
-for api in ["firestore.googleapis.com", "identitytoolkit.googleapis.com",
-            "firebaserules.googleapis.com", "firebasehosting.googleapis.com"]:
-    code, res = call("POST", f"{su}/{api}:enable", {})
-    print(api, "OK" if code == 200 else code)
-    if code != 200:
-        gh("warning", f"Tjänst {api} ({code}): {res.get('error','')[:300]}")
-time.sleep(20)
-
 # 1. Inloggning
 step("Inloggning med e-post")
-code, res = call("GET", f"https://identitytoolkit.googleapis.com/admin/v2/projects/{PROJECT}/config")
-if code == 404:
-    # Motsvarar knappen "Kom igång" i Firebase Authentication
-    c2, r2 = call("POST", f"https://identitytoolkit.googleapis.com/v2/projects/{PROJECT}/identityPlatform:initializeAuth", {})
-    print("initializeAuth", c2)
-    if c2 != 200:
-        gh("warning", f"Starta Auth ({c2}): {r2.get('error','')[:300]}")
 code, res = call("PATCH",
     f"https://identitytoolkit.googleapis.com/admin/v2/projects/{PROJECT}/config"
     "?updateMask=signIn.email.enabled,signIn.email.passwordRequired",
