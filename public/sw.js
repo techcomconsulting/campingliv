@@ -1,5 +1,5 @@
 // Enkel offline-cache för appens skal. Data hämtas alltid färskt från nätet.
-const CACHE = "campingliv-v3";
+const CACHE = "campingliv-v4";
 const SHELL = ["/", "/index.html", "/css/style.css", "/js/app.js", "/js/firebase.js", "/js/map.js",
   "/manifest.webmanifest", "/icons/icon-192.png"];
 
@@ -16,6 +16,13 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  // Kartprogram: cache först (ändras sällan)
+  if (url.pathname.startsWith("/vendor/")) {
+    e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request).then((res) => {
+      const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return res;
+    })));
+    return;
+  }
   e.respondWith(
     fetch(e.request).then((res) => {
       const copy = res.clone();

@@ -1,10 +1,16 @@
 // Karta med campingar och ställplatser från OpenStreetMap.
 // Kartbilder: OpenStreetMap. Platser: Overpass API. Sök: Nominatim.
-const LEAFLET = "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js";
+const LEAFLET = "/vendor/leaflet/leaflet-src.esm.js";
+const LEAFLET_CDN = "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js";
+const DATA = "/data/campings.json";
+const NORDEN = { s: 54, w: 4, n: 71.5, e: 32 }; // här finns färdig data
+const MAX_PINS = 600;
 const OVERPASS = "https://overpass-api.de/api/interpreter";
-const MIN_ZOOM = 9;
+const MIN_ZOOM = 9;      // för livehämtning utanför Norden
+const MIN_ZOOM_LOCAL = 7;
 
 let L = null;
+let places = null; // färdig data, laddas en gång
 let lastView = { lat: 59.3, lng: 15.5, zoom: 6 }; // Sverige
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -59,10 +65,13 @@ export async function renderMap($main, onPost) {
   const $status = document.getElementById("mapStatus");
   const status = (txt) => { $status.textContent = txt; $status.hidden = !txt; };
 
-  try { L = L || await import(LEAFLET); }
+  try { L = L || await import(LEAFLET).catch(() => import(LEAFLET_CDN)); }
   catch { status("Kartan kunde inte laddas. Kolla internet."); return; }
+  if (!places) {
+    places = fetch(DATA).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  }
 
-  const map = L.map("map", { zoomControl: false }).setView([lastView.lat, lastView.lng], lastView.zoom);
+  const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([lastView.lat, lastView.lng], lastView.zoom);
   L.control.zoom({ position: "bottomleft" }).addTo(map);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -78,9 +87,70 @@ export async function renderMap($main, onPost) {
     className: "pin " + type, html: TYPES[type].icon, iconSize: [34, 34], iconAnchor: [17, 17],
   });
 
+  const localLayer = L.layerGroup().addTo(map);
+  const dotLayer = L.layerGroup().addTo(map);
+  const pinCache = new Map();
+  const dotCache = new Map();
+  const tagsOf = (data, i) => {
+    const [, , t, name, bits, phone, web, addr] = data.places[i];
+    const tags = { name, phone, website: web };
+    if (addr) tags["addr:street"] = addr;
+    data.fac.forEach((k, b) => { if (bits & (1 << b)) tags[k] = "yes"; });
+    return [tags, t ? "caravan_site" : "camp_site"];
+  };
+
+  // Utzoomat: små prickar (ritas snabbt, även tusentals)
+  function showDots(data) {
+    localLayer.clearLayers();
+    if (dotLayer.getLayers().length) return status("");
+    data.places.forEach((p, i) => {
+      const m = L.circleMarker([p[0], p[1]], { radius: 4, weight: 1, color: "#fff",
+        fillColor: p[2] ? "#c9832e" : "#2f5d46", fillOpacity: 0.9 })
+        .bindPopup(() => { const [tags, type] = tagsOf(data, i); return popupHtml(tags, type); }, { maxWidth: 260 });
+      dotCache.set(i, m); m.addTo(dotLayer);
+    });
+    status("");
+  }
+
+  // Visar platser från den färdiga listan – går direkt
+  function showLocal(data) {
+    const v = map.getBounds().pad(0.1);
+    const s = v.getSouth(), w = v.getWest(), n = v.getNorth(), e = v.getEast();
+    const inView = [];
+    for (let i = 0; i < data.places.length; i++) {
+      const p = data.places[i];
+      if (p[0] >= s && p[0] <= n && p[1] >= w && p[1] <= e) inView.push(i);
+      if (inView.length > MAX_PINS) break;
+    }
+    localLayer.clearLayers();
+    dotLayer.clearLayers();
+    if (inView.length > MAX_PINS) return showDots(data);
+    for (const i of inView) {
+      let m = pinCache.get(i);
+      if (!m) {
+        const [tags, type] = tagsOf(data, i);
+        m = L.marker([data.places[i][0], data.places[i][1]], { icon: icon(type), title: tags.name })
+          .bindPopup(() => popupHtml(tags, type), { maxWidth: 260 });
+        pinCache.set(i, m);
+      }
+      m.addTo(localLayer);
+    }
+    status(inView.length ? "" : "Inga campingar här");
+  }
+
+  const inNorden = () => {
+    const c = map.getCenter();
+    return c.lat > NORDEN.s && c.lat < NORDEN.n && c.lng > NORDEN.w && c.lng < NORDEN.e;
+  };
+
   async function load() {
     const c = map.getCenter();
     lastView = { lat: c.lat, lng: c.lng, zoom: map.getZoom() };
+    const data = await places;
+    if (data && inNorden()) {
+      layer.clearLayers();
+      return map.getZoom() < MIN_ZOOM_LOCAL ? showDots(data) : showLocal(data);
+    }
     if (map.getZoom() < MIN_ZOOM) { status("Zooma in för att se campingar och ställplatser"); return; }
     const b = map.getBounds().pad(0.2);
     if (loaded.some((x) => x.contains(map.getBounds()))) { status(""); return; }
@@ -112,7 +182,7 @@ export async function renderMap($main, onPost) {
     }
   }
 
-  map.on("moveend", () => { clearTimeout(timer); timer = setTimeout(load, 500); });
+  map.on("moveend", () => { clearTimeout(timer); timer = setTimeout(load, 150); });
   map.on("popupopen", (e) => {
     const btn = e.popup.getElement().querySelector("[data-post]");
     if (btn) btn.onclick = () => onPost(btn.dataset.post);
