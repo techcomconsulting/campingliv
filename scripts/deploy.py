@@ -16,11 +16,11 @@ TOKEN = os.environ["TOKEN"]
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def call(method, url, body=None, raw=None, ctype="application/json", ok=(200,)):
+def call(method, url, body=None, raw=None, ctype="application/json", ok=(200,), quota=False):
     data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
     req = urllib.request.Request(url, data=data, method=method, headers={
         "Authorization": f"Bearer {TOKEN}", "Content-Type": ctype,
-        "x-goog-user-project": PROJECT})
+        **({"x-goog-user-project": PROJECT} if quota else {})})
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
             txt = r.read().decode() or "{}"
@@ -52,7 +52,7 @@ step("Inloggning med e-post")
 code, res = call("PATCH",
     f"https://identitytoolkit.googleapis.com/admin/v2/projects/{PROJECT}/config"
     "?updateMask=signIn.email.enabled,signIn.email.passwordRequired",
-    {"signIn": {"email": {"enabled": True, "passwordRequired": True}}})
+    {"signIn": {"email": {"enabled": True, "passwordRequired": True}}}, quota=True)
 print("OK") if code == 200 else gh("warning", f"Inloggning ({code}): {res.get('error','')[:400]}")
 
 # 2. Databas
