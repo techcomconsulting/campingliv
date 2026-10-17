@@ -1,0 +1,42 @@
+name: Hämta kartdata
+
+# Hämtar campingar (OpenStreetMap) och kartprogrammet Leaflet till appen.
+# Körs när skriptet ändras, en gång i månaden, eller via "Run workflow".
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fetch-campings.py
+      - .github/workflows/data.yml
+  schedule:
+    - cron: '23 3 2 * *'
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hämta Leaflet
+        run: |
+          D=public/vendor/leaflet
+          mkdir -p $D/images
+          B=https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist
+          curl -fsSL $B/leaflet-src.esm.js -o $D/leaflet-src.esm.js
+          curl -fsSL $B/leaflet.css -o $D/leaflet.css
+          for f in marker-icon.png marker-icon-2x.png marker-shadow.png layers.png layers-2x.png; do
+            curl -fsSL $B/images/$f -o $D/images/$f; done
+          curl -fsSL https://cdn.jsdelivr.net/npm/leaflet@1.9.4/LICENSE -o $D/LICENSE.txt
+      - name: Hämta campingar
+        run: python3 scripts/fetch-campings.py
+      - name: Spara
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/vendor public/data
+          if git diff --cached --quiet; then echo "Inget nytt"; exit 0; fi
+          git commit -m "Uppdatera kartdata"
+          git push

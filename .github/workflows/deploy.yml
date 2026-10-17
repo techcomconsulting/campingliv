@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Hämta kartdata"]
+    types: [completed]
 
 concurrency:
   group: deploy
