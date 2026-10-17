@@ -1,6 +1,6 @@
 // Enkel offline-cache för appens skal. Data hämtas alltid färskt från nätet.
-const CACHE = "campingliv-v1";
-const SHELL = ["/", "/index.html", "/css/style.css", "/js/app.js", "/js/firebase.js",
+const CACHE = "campingliv-v2";
+const SHELL = ["/", "/index.html", "/css/style.css", "/js/app.js", "/js/firebase.js", "/js/map.js",
   "/manifest.webmanifest", "/icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {

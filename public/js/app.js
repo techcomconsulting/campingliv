@@ -1,4 +1,5 @@
 import { auth, db, A, F } from "./firebase.js";
+import { renderMap } from "./map.js";
 
 const {
   doc, getDoc, setDoc, addDoc, deleteDoc, collection, query, where,
@@ -10,6 +11,7 @@ const $nav = document.getElementById("nav");
 
 let me = null;        // Firebase-användaren
 let profile = null;   // användarens profil i databasen
+let prefillPlace = ""; // plats vald på kartan
 
 // ---------- Hjälpfunktioner ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -309,7 +311,7 @@ function renderCreate() {
   <h1 class="page">Nytt inlägg</h1>
   <form class="card" id="postForm">
     <label>Rubrik<input name="title" maxlength="150" placeholder="T.ex. Första natten vid Vättern"></label>
-    <label>Plats<input name="place" maxlength="150" placeholder="Camping eller ställplats (valfritt)"></label>
+    <label>Plats<input name="place" maxlength="150" placeholder="Camping eller ställplats (valfritt)" value="${esc(prefillPlace)}"></label>
     <label>Berätta<textarea name="text" rows="6" maxlength="5000" required placeholder="Hur var dagen?"></textarea></label>
     <label>Vem får se inlägget?
       <select name="visibility">
@@ -320,6 +322,7 @@ function renderCreate() {
     <p class="muted">📷 Bilder och film kommer i nästa steg.</p>
     <button class="btn primary" type="submit">Publicera</button>
   </form>`;
+  prefillPlace = "";
   const f = document.getElementById("postForm");
   f.onsubmit = async (ev) => {
     ev.preventDefault();
@@ -458,7 +461,7 @@ function renderSoon(title, text) {
 // ---------- Navigering ----------
 const routes = {
   "#/flode": renderFeed,
-  "#/karta": () => renderSoon("Karta", "🗺️ Här kommer kartan med campingar och ställplatser."),
+  "#/karta": () => renderMap($main, (name) => { prefillPlace = name; location.hash = "#/skapa"; }),
   "#/skapa": renderCreate,
   "#/resor": () => renderSoon("Resor", "🚐 Här skapar du resor med rutt och kostnader."),
   "#/profil": renderProfile,
@@ -471,6 +474,7 @@ function route() {
   $nav.hidden = false;
   $nav.querySelectorAll("a").forEach((a) =>
     a.classList.toggle("on", a.getAttribute("href") === h || (h === "#/vanner" && a.getAttribute("href") === "#/profil")));
+  document.body.classList.toggle("on-map", h === "#/karta");
   routes[h]();
   window.scrollTo(0, 0);
 }

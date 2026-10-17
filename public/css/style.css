@@ -91,3 +91,29 @@ nav a.plus span { background: var(--green); color: #fff; width: 44px; height: 32
   max-width: calc(100% - 32px); font-weight: 600; }
 .toast.bad { background: var(--red); }
 .row .btn { width: auto; flex: none; margin: 0; }
+
+/* ---------- Karta ---------- */
+body.on-map main { max-width: none; padding: 0; }
+.map-wrap { position: fixed; inset: 0 0 calc(62px + env(safe-area-inset-bottom)) 0; }
+#map { position: absolute; inset: 0; background: var(--sand); }
+.map-search { position: absolute; z-index: 500; top: calc(12px + env(safe-area-inset-top)); left: 12px; right: 12px;
+  display: flex; gap: 8px; max-width: 520px; margin: 0 auto; }
+.map-search input { margin: 0; flex: 1; background: var(--card); box-shadow: 0 2px 8px rgb(0 0 0 / .15); }
+.map-search .btn { flex: none; width: 48px; padding: 0; margin: 0; }
+.map-me { position: absolute; z-index: 500; right: 12px; bottom: 24px; width: 48px; height: 48px;
+  border-radius: 50%; border: 0; background: var(--card); font-size: 1.3rem; cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / .2); }
+.map-status { position: absolute; z-index: 500; left: 50%; transform: translateX(-50%);
+  top: calc(72px + env(safe-area-inset-top)); background: var(--card); color: var(--ink); padding: 8px 14px;
+  border-radius: 999px; font-weight: 600; font-size: .9rem; box-shadow: 0 2px 8px rgb(0 0 0 / .15);
+  white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.map-status[hidden] { display: none; }
+.pin { display: grid; place-items: center; font-size: 18px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--green); box-shadow: 0 1px 4px rgb(0 0 0 / .3); }
+.pin.caravan_site { border-color: #c9832e; }
+.leaflet-popup-content { font: 15px/1.4 Nunito, system-ui, sans-serif; margin: 12px 14px; }
+.pop b { display: block; font-size: 1.05rem; margin: 2px 0 4px; }
+.pop small { color: #6b766f; }
+.pop .fac { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.pop .fac span { background: #f1ebe0; border-radius: 999px; padding: 2px 8px; font-size: .8rem; }
+.pop .btn { width: 100%; margin-top: 10px; padding: 9px; color: #fff; }
