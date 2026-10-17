@@ -117,3 +117,68 @@ body.on-map main { max-width: none; padding: 0; }
 .pop .fac { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .pop .fac span { background: #f1ebe0; border-radius: 999px; padding: 2px 8px; font-size: .8rem; }
 .pop .btn { width: 100%; margin-top: 10px; padding: 9px; color: #fff; }
+
+/* ---------- Flöde i Instagram/Facebook-stil ---------- */
+.topbar { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center;
+  margin: -16px -16px 0; padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); }
+.logo-text { font-size: 1.6rem; font-weight: 800; color: var(--green); letter-spacing: -.5px; }
+.topbar .icon { font-size: 1.4rem; text-decoration: none; }
+
+.stories { display: flex; gap: 14px; overflow-x: auto; padding: 10px 2px 14px; margin: 0 -16px; padding-left: 16px;
+  scrollbar-width: none; }
+.stories::-webkit-scrollbar { display: none; }
+.story { flex: none; width: 70px; text-align: center; background: none; border: 0; padding: 0; color: var(--ink);
+  font: inherit; text-decoration: none; cursor: pointer; }
+.story span { display: block; font-size: .75rem; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story .avatar { width: 60px; height: 60px; font-size: 1.4rem; border: 3px solid var(--bg); }
+.ring { position: relative; display: inline-grid; padding: 2px; border-radius: 50%;
+  background: conic-gradient(from 200deg, #f2a65a, #2a9d8f, #2f5d46, #c9a66b, #f2a65a); }
+.ring.add, .ring.ghost { background: var(--line); }
+.ring i { position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--green); color: #fff; font-style: normal; font-weight: 800; line-height: 20px; border: 2px solid var(--bg); }
+.story.on .ring { background: var(--green); }
+.story.on span { font-weight: 800; color: var(--green); }
+
+.composer { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 10px 12px; margin-bottom: 14px; color: var(--muted); text-decoration: none; }
+.composer span { flex: 1; background: var(--bg); border-radius: 999px; padding: 10px 14px; }
+.filter { margin: 0 4px 12px; font-weight: 600; }
+
+.ig { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  margin: 0 -16px 14px; position: relative; }
+@media (min-width: 600px) { .ig { margin: 0 0 18px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; } }
+.ig header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; position: relative; }
+.ig header .avatar { width: 36px; height: 36px; border: 2px solid var(--card); font-size: .95rem; }
+.ig .who { flex: 1; min-width: 0; line-height: 1.25; }
+.ig .who small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ig .cover { aspect-ratio: 1 / 1; max-height: 70vh; width: 100%; display: grid; place-items: center; position: relative;
+  padding: 28px; color: #fff; text-align: center; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.ig .cover p { margin: 0; font-size: 1.9rem; font-weight: 800; line-height: 1.2; text-shadow: 0 2px 12px rgb(0 0 0 / .25);
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.ig .cover p.long { font-size: 1.35rem; }
+.ig .cover .tag { position: absolute; left: 12px; bottom: 12px; background: rgb(0 0 0 / .35); padding: 4px 10px;
+  border-radius: 999px; font-size: .85rem; font-weight: 700; }
+.ig .heart { position: absolute; font-size: 6rem; opacity: 0; transform: scale(.3); pointer-events: none; }
+.ig .heart.show { animation: heart .8s ease-out; }
+@keyframes heart { 15% { opacity: 1; transform: scale(1.2); } 30% { transform: scale(.95); } 45%,80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+.ig .actions { display: flex; align-items: center; gap: 2px; padding: 4px 6px 0; }
+.ig .actions .icon { font-size: 1.5rem; padding: 6px 8px; }
+.ig .actions .vis { margin-left: auto; padding-right: 8px; opacity: .7; }
+.ig .like.pop { animation: pop .3s; }
+@keyframes pop { 50% { transform: scale(1.3); } }
+.ig .body { padding: 0 14px 12px; }
+.ig .likes { display: block; margin: 2px 0 4px; }
+.ig .caption { margin: 2px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ig .caption.clip { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ig .more, .ig .show-comments { background: none; border: 0; padding: 2px 0; color: var(--muted); font: inherit; cursor: pointer; }
+.ig .show-comments { display: block; }
+.ig .comment { padding: 4px 0; border: 0; }
+.ig .comment p { margin: 0; overflow-wrap: anywhere; }
+.ig .comment small { display: inline; }
+.ig .add-comment { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.ig .add-comment input { margin: 0; border: 0; background: none; padding: 8px 0; outline: none; }
+.ig .add-comment .post-btn { background: none; border: 0; color: var(--green); font: inherit; font-weight: 800; cursor: pointer; }
+.ig .add-comment input:placeholder-shown + .post-btn { opacity: .4; }
+.avatar.sm { width: 28px; height: 28px; font-size: .8rem; }
+.ig time { display: block; margin-top: 6px; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }

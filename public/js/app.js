@@ -181,43 +181,89 @@ async function loadFeed() {
   return { list, error };
 }
 
+// Naturfärger för inlägg utan bild (som Facebooks färgade inlägg)
+const COVERS = [
+  "linear-gradient(135deg,#2f5d46,#7fb08a)", "linear-gradient(135deg,#1f4e79,#5fa8d3)",
+  "linear-gradient(135deg,#b4562e,#f2a65a)", "linear-gradient(135deg,#5b3f8c,#c47ab8)",
+  "linear-gradient(135deg,#355c4a,#c9a66b)", "linear-gradient(135deg,#0f3b47,#2a9d8f)",
+];
+const coverFor = (id) => COVERS[[...String(id)].reduce((n, c) => n + c.charCodeAt(0), 0) % COVERS.length];
+const initial = (n) => esc((n || "?").trim()[0]?.toUpperCase() || "?");
+
 function postCard(p) {
   const v = VIS[p.visibility] || VIS.public;
   const mine = p.authorId === me.uid;
+  // Rubrik (eller kort text) visas stort på en färgad yta
+  const big = p.title || (p.text.length <= 120 ? p.text : "");
+  const caption = p.title ? p.text : (big ? "" : p.text);
   return `
-  <article class="card post" data-id="${esc(p.id)}">
+  <article class="ig" data-id="${esc(p.id)}">
     <header>
-      <div class="avatar">${esc((p.authorName || "?")[0].toUpperCase())}</div>
-      <div><b>${esc(p.authorName)}</b>
-        <small>${timeAgo(p.createdAt)} · <span title="${v.label}">${v.icon} ${v.label}</span></small></div>
+      <div class="ring"><div class="avatar">${initial(p.authorName)}</div></div>
+      <div class="who"><b>${esc(p.authorName)}</b>
+        <small>${p.place ? `📍 ${esc(p.place)}` : `${v.icon} ${v.label}`}</small></div>
       <button class="icon menu" aria-label="Mer">⋯</button>
       <div class="menu-pop" hidden>
         ${mine ? `<button data-act="delete">Ta bort inlägget</button>`
                : `<button data-act="report">Rapportera</button>`}
       </div>
     </header>
-    ${p.title ? `<h3>${esc(p.title)}</h3>` : ""}
-    ${p.place ? `<p class="place">📍 ${esc(p.place)}</p>` : ""}
-    <p class="text">${esc(p.text)}</p>
-    <footer>
-      <button class="icon like" data-act="like">🤍 <span>0</span></button>
-      <button class="icon" data-act="comments">💬 Kommentarer</button>
-    </footer>
-    <div class="comments" hidden></div>
+    ${big ? `<div class="cover" style="background:${coverFor(p.id)}">
+        <p class="${big.length > 60 ? "long" : ""}">${esc(big)}</p>
+        ${p.place ? `<span class="tag">📍 ${esc(p.place)}</span>` : ""}
+        <div class="heart">❤️</div></div>` : ""}
+    <div class="actions">
+      <button class="icon like" data-act="like" aria-label="Gilla">🤍</button>
+      <button class="icon" data-act="comments" aria-label="Kommentera">💬</button>
+      <button class="icon" data-act="share" aria-label="Dela">📤</button>
+      <span class="vis" title="${v.label}">${v.icon}</span>
+    </div>
+    <div class="body">
+      <b class="likes" hidden></b>
+      ${caption ? `<p class="caption ${caption.length > 160 ? "clip" : ""}"><b>${esc(p.authorName)}</b> ${esc(caption)}</p>
+        ${caption.length > 160 ? `<button class="more">mer</button>` : ""}` : ""}
+      <button class="show-comments" hidden></button>
+      <div class="comments" hidden></div>
+      <form class="add-comment"><div class="avatar sm">${initial(profile.displayName)}</div>
+        <input name="t" placeholder="Lägg till en kommentar…" maxlength="2000" required>
+        <button class="post-btn">Publicera</button></form>
+      <time>${timeAgo(p.createdAt)}</time>
+    </div>
   </article>`;
 }
+
+let feedFilter = null; // visa bara en väns inlägg
 
 async function renderFeed() {
   $main.innerHTML = `<div class="loading">Laddar flödet…</div>`;
   try {
-    const { list, error } = await loadFeed();
+    const [{ list, error }, friends] = await Promise.all([
+      loadFeed(), getDocs(collection(db, "users", me.uid, "friends")).catch(() => ({ docs: [] }))]);
+    const shown = feedFilter ? list.filter((p) => p.authorId === feedFilter) : list;
+    const fName = friends.docs.find((d) => d.id === feedFilter)?.data().name;
     $main.innerHTML = `
-      <h1 class="page">Flöde</h1>
+      <div class="topbar"><span class="logo-text">Campingliv</span>
+        <a class="icon" href="#/vanner" aria-label="Vänner">👥</a></div>
+      <div class="stories">
+        <a class="story" href="#/skapa"><div class="ring add"><div class="avatar">${initial(profile.displayName)}</div><i>＋</i></div><span>Din resa</span></a>
+        ${friends.docs.map((d) => `<button class="story ${feedFilter === d.id ? "on" : ""}" data-friend="${esc(d.id)}">
+          <div class="ring"><div class="avatar">${initial(d.data().name)}</div></div>
+          <span>${esc(d.data().name.split(" ")[0])}</span></button>`).join("")}
+        ${friends.docs.length ? "" : `<a class="story" href="#/vanner"><div class="ring ghost"><div class="avatar">👥</div></div><span>Hitta vänner</span></a>`}
+      </div>
+      <a class="composer" href="#/skapa"><div class="avatar">${initial(profile.displayName)}</div>
+        <span>Vad händer på campingen, ${esc(profile.displayName.split(" ")[0])}?</span></a>
+      ${feedFilter ? `<div class="filter">Visar bara ${esc(fName || "vän")} <button class="link" id="clearFilter">Visa alla</button></div>` : ""}
       ${error ? indexHelp(error) || `<div class="card notice">Offentliga inlägg kunde inte laddas: ${esc(errText(error))}</div>` : ""}
-      ${list.length ? list.map(postCard).join("") : `
+      ${shown.length ? shown.map(postCard).join("") : `
         <div class="card empty"><p>Inga inlägg ännu.</p>
         <a class="btn primary" href="#/skapa">Skriv ditt första inlägg</a></div>`}`;
-    $main.querySelectorAll(".post").forEach((el) => wirePost(el, list.find((p) => p.id === el.dataset.id)));
+    $main.querySelectorAll("[data-friend]").forEach((b) => b.onclick = () => {
+      feedFilter = feedFilter === b.dataset.friend ? null : b.dataset.friend; renderFeed();
+    });
+    const clr = document.getElementById("clearFilter");
+    if (clr) clr.onclick = () => { feedFilter = null; renderFeed(); };
+    $main.querySelectorAll(".ig").forEach((el) => wirePost(el, list.find((p) => p.id === el.dataset.id)));
   } catch (e) {
     $main.innerHTML = indexHelp(e) || `<div class="card notice">${esc(errText(e))}</div>`;
   }
@@ -225,19 +271,32 @@ async function renderFeed() {
 
 async function wirePost(el, p) {
   const likeBtn = el.querySelector(".like");
+  const likesEl = el.querySelector(".likes");
   const likesCol = collection(db, "posts", p.id, "likes");
+  const commentsCol = collection(db, "posts", p.id, "comments");
   const myLike = doc(db, "posts", p.id, "likes", me.uid);
-  let liked = false, count = 0;
-  const paint = () => {
-    likeBtn.innerHTML = `${liked ? "❤️" : "🤍"} <span>${count}</span>`;
-    likeBtn.classList.toggle("on", liked);
-  };
-  try {
-    const [c, mine] = await Promise.all([getCountFromServer(likesCol), getDoc(myLike)]);
-    count = c.data().count; liked = mine.exists(); paint();
-  } catch { /* gillningar visas som 0 om de inte kan läsas */ }
+  const showBtn = el.querySelector(".show-comments");
+  const box = el.querySelector(".comments");
+  let liked = false, count = 0, nComments = 0;
 
-  likeBtn.onclick = async () => {
+  const paint = () => {
+    likeBtn.textContent = liked ? "❤️" : "🤍";
+    likeBtn.classList.toggle("on", liked);
+    likesEl.hidden = count === 0;
+    likesEl.textContent = count === 1 ? "1 gillning" : `${count} gillningar`;
+  };
+  const paintComments = () => {
+    showBtn.hidden = nComments === 0 || !box.hidden;
+    showBtn.textContent = nComments === 1 ? "Visa 1 kommentar" : `Visa alla ${nComments} kommentarer`;
+  };
+  Promise.all([getCountFromServer(likesCol), getDoc(myLike), getCountFromServer(commentsCol)])
+    .then(([c, mine, cc]) => {
+      count = c.data().count; liked = mine.exists(); nComments = cc.data().count;
+      paint(); paintComments();
+    }).catch(() => {});
+
+  async function toggleLike(force) {
+    if (force && liked) return;
     likeBtn.disabled = true;
     try {
       if (liked) { await deleteDoc(myLike); liked = false; count--; }
@@ -245,6 +304,36 @@ async function wirePost(el, p) {
       paint();
     } catch (e) { toast(errText(e), true); }
     likeBtn.disabled = false;
+  }
+  likeBtn.onclick = () => {
+    likeBtn.classList.remove("pop"); void likeBtn.offsetWidth; likeBtn.classList.add("pop");
+    toggleLike();
+  };
+
+  // Dubbeltryck på bilden = gilla (som Instagram)
+  const cover = el.querySelector(".cover");
+  if (cover) {
+    let last = 0;
+    cover.addEventListener("click", () => {
+      const now = Date.now();
+      if (now - last < 350) {
+        const h = cover.querySelector(".heart");
+        h.classList.remove("show"); void h.offsetWidth; h.classList.add("show");
+        toggleLike(true);
+      }
+      last = now;
+    });
+  }
+
+  const more = el.querySelector(".more");
+  if (more) more.onclick = () => { el.querySelector(".caption").classList.remove("clip"); more.remove(); };
+
+  el.querySelector("[data-act=share]").onclick = async () => {
+    const text = [p.title, p.place && `📍 ${p.place}`, p.text].filter(Boolean).join("\n");
+    try {
+      if (navigator.share) await navigator.share({ title: p.title || "Campingliv", text, url: location.origin });
+      else { await navigator.clipboard.writeText(`${text}\n${location.origin}`); toast("Kopierat!"); }
+    } catch { /* användaren avbröt */ }
   };
 
   const pop = el.querySelector(".menu-pop");
@@ -267,42 +356,48 @@ async function wirePost(el, p) {
     }
   };
 
-  const box = el.querySelector(".comments");
-  el.querySelector("[data-act=comments]").onclick = async () => {
-    box.hidden = !box.hidden;
-    if (!box.hidden) await renderComments(box, p);
+  const openComments = async () => {
+    box.hidden = false; paintComments();
+    nComments = await renderComments(box, p, () => { nComments--; });
+  };
+  showBtn.onclick = openComments;
+  el.querySelector("[data-act=comments]").onclick = () => {
+    if (box.hidden && nComments) openComments();
+    el.querySelector(".add-comment input").focus();
+  };
+
+  const f = el.querySelector(".add-comment");
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const btn = f.querySelector(".post-btn"); btn.disabled = true;
+    try {
+      await addDoc(commentsCol, { authorId: me.uid, authorName: profile.displayName,
+        text: f.t.value.trim(), createdAt: serverTimestamp() });
+      f.reset(); nComments++;
+      await openComments();
+    } catch (e) { toast(errText(e), true); }
+    btn.disabled = false;
   };
 }
 
+// Visar kommentarerna. Returnerar antalet.
 async function renderComments(box, p) {
   box.innerHTML = `<small>Laddar…</small>`;
   const col = collection(db, "posts", p.id, "comments");
   try {
     const snap = await getDocs(query(col, orderBy("createdAt", "asc"), limit(100)));
-    box.innerHTML = `
-      ${snap.docs.map((d) => {
-        const c = d.data();
-        const canDel = c.authorId === me.uid || p.authorId === me.uid;
-        return `<div class="comment"><b>${esc(c.authorName)}</b> ${esc(c.text)}
-          <small>${timeAgo(c.createdAt)}${canDel ? ` · <button class="link" data-del="${d.id}">Ta bort</button>` : ""}</small></div>`;
-      }).join("") || "<small>Inga kommentarer ännu.</small>"}
-      <form class="row"><input name="t" placeholder="Skriv en kommentar…" maxlength="2000" required>
-        <button class="btn primary">Skicka</button></form>`;
+    box.innerHTML = snap.docs.map((d) => {
+      const c = d.data();
+      const canDel = c.authorId === me.uid || p.authorId === me.uid;
+      return `<div class="comment"><p><b>${esc(c.authorName)}</b> ${esc(c.text)}</p>
+        <small>${timeAgo(c.createdAt)}${canDel ? ` · <button class="link" data-del="${d.id}">Ta bort</button>` : ""}</small></div>`;
+    }).join("");
     box.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
-      try { await deleteDoc(doc(col, b.dataset.del)); renderComments(box, p); }
+      try { await deleteDoc(doc(col, b.dataset.del)); b.closest(".comment").remove(); }
       catch (e) { toast(errText(e), true); }
     });
-    const f = box.querySelector("form");
-    f.onsubmit = async (ev) => {
-      ev.preventDefault();
-      const btn = f.querySelector("button"); busy(btn, true);
-      try {
-        await addDoc(col, { authorId: me.uid, authorName: profile.displayName,
-          text: f.t.value.trim(), createdAt: serverTimestamp() });
-        renderComments(box, p);
-      } catch (e) { toast(errText(e), true); busy(btn, false); }
-    };
-  } catch (e) { box.innerHTML = `<small>${esc(errText(e))}</small>`; }
+    return snap.size;
+  } catch (e) { box.innerHTML = `<small>${esc(errText(e))}</small>`; return 0; }
 }
 
 // ---------- Skapa inlägg ----------
